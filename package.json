@@ -64,11 +64,11 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/YuJunZhiXue/dsh-purge.git"
+    "url": "git+https://github.com/iuuuuuuuu/dsh-purge-plus.git"
   },
-  "homepage": "https://github.com/YuJunZhiXue/dsh-purge#readme",
+  "homepage": "https://github.com/iuuuuuuuu/dsh-purge-plus#readme",
   "bugs": {
-    "url": "https://github.com/YuJunZhiXue/dsh-purge/issues"
+    "url": "https://github.com/iuuuuuuuu/dsh-purge-plus/issues"
   },
   "dsh": {
     "bundle": {
@@ -86,9 +86,9 @@
     },
     "install": {
       "preferred": "tarball",
-      "tarball": "https://github.com/YuJunZhiXue/dsh-purge/archive/refs/heads/master.tar.gz",
-      "zip": "https://github.com/YuJunZhiXue/dsh-purge/archive/refs/heads/master.zip",
-      "git": "https://github.com/YuJunZhiXue/dsh-purge.git"
+      "tarball": "https://github.com/iuuuuuuuu/dsh-purge-plus/archive/refs/heads/main.tar.gz",
+      "zip": "https://github.com/iuuuuuuuu/dsh-purge-plus/archive/refs/heads/main.zip",
+      "git": "https://github.com/iuuuuuuuu/dsh-purge-plus.git"
     },
     "version": "1.4.3"
   },
