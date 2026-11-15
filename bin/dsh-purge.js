@@ -41,7 +41,7 @@ function printStatus(state) {
 }
 
 async function main() {
-  const mode = args.find((a) => ["--apply", "--revert", "--uninstall", "--status", "--edit", "--help", "--tauri-unpack", "--tauri-core"].includes(a));
+  const mode = args.find((a) => ["--apply", "--revert", "--uninstall", "--status", "--edit", "--help", "--tauri-unpack", "--tauri-core", "--verify"].includes(a));
 
   if (mode === "--help" || args.includes("-h")) {
     console.log(`dsh-purge 用法:
@@ -50,6 +50,7 @@ async function main() {
   dsh-purge --revert     回滚还原
   dsh-purge --uninstall  卸载插件（已应用则先还原）
   dsh-purge --edit       编辑注入文件 prompt-inject.md
+  dsh-purge --verify     自检：补丁是否写进文件、运行中的宿主是否已加载
   dsh-purge --tauri-unpack [--flip]   把 dsh-tauri 的 asar 核心解包成目录核心（--flip 同时切换核心格式）
   dsh-purge --tauri-core dir|asar     切换 dsh-tauri 的核心格式（切换后需重启桌面端）
   dsh-purge --help       帮助`);
@@ -119,6 +120,91 @@ async function main() {
     console.log("");
     console.log("回滚完成 / Revert done。重启 dsh 后恢复 / restart to restore.");
     console.log("注: prompt-inject.md 保留（用户文件）/ prompt-inject.md kept (user file)");
+  } else if (mode === "--verify") {
+    // 「补丁写进文件」和「运行中的宿主加载了补丁」是两件事，这里分开验。
+    const fs = await import("node:fs");
+    const nodePath = await import("node:path");
+    const st = state;
+    const lines = [];
+    let ok = true;
+    const tauriHost = st.tauri_support
+      ? st.tauri_support + " | core=" + (st.tauri_core || "?") + " | v" + (st.tauri_version || "?")
+      : "(not dsh-tauri)";
+    lines.push("宿主        " + (st.host_kind || st.surface) + " · " + tauriHost);
+    if (!st.ai_base) {
+      lines.push("补丁目标    未定位：" + core.missingAiBaseMessage());
+      ok = false;
+    } else {
+      lines.push("补丁目标    " + st.ai_base);
+      // 1) 文件层
+      let newest = 0;
+      let marked = 0;
+      const walk = (dir) => {
+        let entries = [];
+        try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+        for (const e of entries) {
+          const p = nodePath.join(dir, e.name);
+          if (e.isDirectory()) { walk(p); continue; }
+          if (!e.name.endsWith(".js") && !e.name.endsWith(".yml") && !e.name.endsWith(".json")) continue;
+          let text = "";
+          try { text = fs.readFileSync(p, "utf8"); } catch { continue; }
+          if (!text.includes("dsh-purge")) continue;
+          marked += 1;
+          try { newest = Math.max(newest, fs.statSync(p).mtimeMs); } catch { /* ignore */ }
+        }
+      };
+      walk(st.ai_base);
+      const fmt = (ms) => new Date(ms).toLocaleTimeString("zh-CN", { hour12: false });
+      lines.push("文件层      " + marked + " 个文件带 [dsh-purge] 标记" + (newest ? "，最后写入 " + fmt(newest) : ""));
+      if (marked === 0) { lines.push("            ✗ 一个标记都没有，先点「应用」"); ok = false; }
+      // 2) 待办
+      lines.push("补丁表      " + st.patches_applied + " 已清洗 / " + st.patches_pending + " 待清洗" + (st.patches_skipped ? " / " + st.patches_skipped + " 跳过" : "") + (st.patches_na ? " / " + st.patches_na + " 组件未装" : ""));
+      if (st.patches_pending > 0) { lines.push("            ✗ 还有待清洗补丁，点「应用」"); ok = false; }
+      // 3) 进程层：宿主进程是不是在补丁写完之后才起来的
+      let pid = "";
+      try {
+        const pidFile = nodePath.join(process.env.DSH_PROFILE_DIR || nodePath.join(st.dsh_home, "profiles", process.env.DSH_PROFILE || "tauri"), ".harness.pid");
+        pid = String(fs.readFileSync(pidFile, "utf8")).trim().split(/\s+/)[0];
+      } catch { /* ignore */ }
+      if (pid) {
+        let started = 0;
+        try {
+          const { execFileSync } = await import("node:child_process");
+          const etime = String(execFileSync("ps", ["-o", "etime=", "-p", pid], { encoding: "utf8" })).trim();
+          const m = etime.match(/^(?:(\d+)-)?(?:(\d+):)?(\d+):(\d+)$/);
+          if (m) {
+            const secs = (Number(m[1] || 0) * 86400) + (Number(m[2] || 0) * 3600) + (Number(m[3]) * 60) + Number(m[4]);
+            started = Date.now() - secs * 1000;
+          }
+        } catch { /* ignore */ }
+        if (started) {
+          const loaded = started >= newest;
+          lines.push("进程层      pid=" + pid + " 启动于 " + fmt(started) + (loaded ? " → 已加载补丁 ✓" : " → 早于补丁写入 ✗ 需要重启"));
+          if (!loaded) ok = false;
+        } else {
+          lines.push("进程层      pid=" + pid + "（拿不到启动时间，跳过）");
+        }
+      } else {
+        lines.push("进程层      没有 .harness.pid，无法判断是否已加载");
+      }
+    }
+    // 4) 版本戳
+    let stampVersion = "";
+    try {
+      stampVersion = JSON.parse(fs.readFileSync(nodePath.join(st.dsh_home, "dsh-purge", "applied.json"), "utf8")).version || "";
+    } catch { /* ignore */ }
+    let pluginVersion = "";
+    try {
+      pluginVersion = JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8")).version || "";
+    } catch { /* ignore */ }
+    lines.push("版本戳      applied=" + (stampVersion || "none") + " / plugin=" + (pluginVersion || "?") + (stampVersion === pluginVersion ? " ✓" : " ✗ 下次启动会重打"));
+    if (stampVersion && pluginVersion && stampVersion !== pluginVersion) ok = false;
+    console.log("");
+    console.log("dsh-purge 生效自检 / Verify");
+    for (const line of lines) console.log("  " + line);
+    console.log("");
+    console.log(ok ? "  结论：补丁已写进文件、且运行中的宿主已加载。" : "  结论：还没完全生效，按上面 ✗ 的提示处理后重启 DSH Tauri。");
+    process.exit(ok ? 0 : 1);
   } else if (mode === "--tauri-unpack") {
     const tauri = await import("../lib/tauri.js");
     const host = tauri.tauriHost();
