@@ -108,7 +108,10 @@ async function main() {
   core.resetPathMemo();
   check("密封宿主 → 未定位", core.findAiBase() === null, String(core.findAiBase()));
   check("hostKind 为 tauri", core.hostKind() === "tauri", core.hostKind());
-  check("密封 asar 不外泄为补丁目标", core.enumeratePatchAiBases().length === 0);
+  // 机器上可能还装着别的宿主（本机就有），所以只断言夹具里的路径不外泄。
+  const bases = core.enumeratePatchAiBases();
+  check("密封 asar 不外泄为补丁目标", bases.every((b) => !b.includes(root)), JSON.stringify(bases));
+  check("补丁目标里没有 .asar 内路径", bases.every((b) => !b.toLowerCase().includes(".asar/")));
   check("提示文案指向解包", /tauri-unpack/.test(core.missingAiBaseMessage()));
 
   console.log("解包成目录核心");
