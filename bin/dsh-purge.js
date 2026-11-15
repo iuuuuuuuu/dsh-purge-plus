@@ -61,8 +61,11 @@ async function main() {
   }
 
   const state = await core.gatherState();
-  console.log(printStatus(state));
-  console.log("");
+  // --profiles 只是列清单，不该先刷一屏补丁状态
+  if (mode !== "--profiles") {
+    console.log(printStatus(state));
+    console.log("");
+  }
 
   if (mode === "--apply") {
     if (!state.ai_base) {
