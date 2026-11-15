@@ -6,14 +6,14 @@
 
 > 📦 **本仓库为分发镜像**：内容取自 [JeffKeeping/dsh-purge-plus](https://github.com/JeffKeeping/dsh-purge-plus) 的 1.4.3 构建产物（上游 [YuJunZhiXue/dsh-purge](https://github.com/YuJunZhiXue/dsh-purge)），署名、非商用条款与许可证原样保留，未改动插件功能。
 
-<p align="center"><strong>Version 1.4.4 · 本分支 fork</strong> · 适配 DSH <strong>0.2.1-rc.2</strong></p>
+<p align="center"><strong>Version 1.5.0 · 本分支 fork</strong> · 适配 DSH <strong>0.2.1-rc.2</strong></p>
 
 > **这是 fork，不是上游。** 原项目：[YuJunZhiXue/dsh-purge](https://github.com/YuJunZhiXue/dsh-purge)，原作者 **小杨**（[@YuJunZhiXue](https://github.com/YuJunZhiXue)），MIT 许可证（`Copyright (c) 2026 小杨`，本仓库原样保留）。
 > 本分支由 **[@JeffKeeping](https://github.com/JeffKeeping)** 维护，只做 **0.2.1-rc.2 适配 + 破甲内核升级 + 界面重做 + 一处补丁锚点修复**，不改变插件用途与能力范围。
 > 逐条对比上一版（1.2.0）优化与新增了什么：**[CHANGELOG.md](CHANGELOG.md)**。
 > 1.4.0 的审批档位 / 审计流水 / 严格 JSON / 修订号借鉴了 [Minglink/dsh-infinite-gen-5](https://github.com/Minglink/dsh-infinite-gen-5)，来源与边界见 [NOTICE.md](NOTICE.md)。
 > **1.4.1 修掉「装完就报 unknown prompt variable {{cwd}}」**：0.2.1 只注册 provider / model，本插件已补注册 cwd 并不再让配置发变量。
-> **1.4.2 移除输入框的「回退」按钮及其作用**（后端路由、`/rewind` 命令、3 条补丁一起删），补丁总数 82 → 79。
+> **1.4.2 移除输入框的「回退」按钮及其作用**（后端路由、`/rewind` 命令、3 条补丁一起删）。当前补丁表共 **80 条**（面板按宿主实际情况显示分母）。
 > **1.4.3 恢复「插话发送」**：回滚 1.4.2 里把 prompt() 一律改成 followup 的两个补丁（#85/#86），并新增 #90 真正闩锁 running 态的唤醒，turn 收尾窗口的消息不再滞留。
 > 变更清单与署名要求见 [NOTICE.md](NOTICE.md)；使用前提、无担保与法律声明见 [DISCLAIMER.md](DISCLAIMER.md)。
 > 上游的**非商用**条款沿用：禁止商业售卖、付费倒卖与黑灰产牟利。
@@ -174,7 +174,8 @@ Harness 不只是把问题交给模型。它还会在运行时改提示词、审
 
 最新版只支持 **dsh 0.2**，不要拿它去打 0.1.x。
 
-- **dsh 0.2**（官方桌面 **0.2.1-rc.2** / 0.2.0-rc.2 / 官方 `dsh web`）：用 **1.2.0** 及以上。本页命令装的就是这一档。
+- **dsh 0.2**（官方桌面 **0.2.1-rc.2** / 0.2.0-rc.2 / 官方 `dsh web`）：用 **1.2.0** 及以上；**1.5.0** 起额外适配社区桌面端 **dsh-tauri**（集成打包版）。
+- **dsh-tauri（社区桌面端）**：宿主把 `@deepseek-ai` 装进密封 `*.asar`，归档内不可写。1.5.0 会认出这套布局并**拒绝假装修补丁**；先跑 `dsh-purge --tauri-unpack --flip` 把它解包成目录核心、切掉 ASAR，重启后点「应用」即可真正打上补丁。
 - **dsh 0.1.7**（含 rc.1 / rc.2）：用 **1.1.39** 及更早 —— 在 [Releases](https://github.com/YuJunZhiXue/dsh-purge/releases) 里选对应标签。
 
 对不上的补丁会显示待应用或跳过，不会乱改文件。

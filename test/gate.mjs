@@ -325,7 +325,10 @@ console.log("\n== tool-gate ==");
   }
   {
     const h = makeCtx("allowed-once");
-    installToolGate(h.ctx, { auditPath: () => path.join("Z:\\nope\\nested", "audit.jsonl"), fs, path });
+    // 不可写路径必须落在临时目录里：以前写的是 Z:\nope\nested，
+    // 在 macOS / Linux 上会被当成普通文件名，直接在仓库根目录建目录、留下垃圾。
+    const unwritable = path.join(os.tmpdir(), "dsh-purge-gate", "no-such-dir", "audit.jsonl");
+    installToolGate(h.ctx, { auditPath: () => unwritable, fs, path });
     const out = await h.handlers["tools/post-execute"][0]({ name: "purge_apply" }, { value: {} }, async () => "next");
     check("unwritable audit path does not break result", out === "next");
   }

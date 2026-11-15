@@ -8,8 +8,13 @@ const args = process.argv.slice(2);
 function printStatus(state) {
   const out = [];
   out.push("dsh-purge 状态 / Status");
-  out.push("  宿主 / surface " + (state.surface || "web"));
+  out.push("  宿主 / surface " + (state.surface || "web") + (state.host_kind ? " (" + state.host_kind + ")" : ""));
   out.push("  DSH_HOME      " + state.dsh_home);
+  if (state.tauri_support) {
+    out.push("  dsh-tauri     " + state.tauri_support + " | core=" + (state.tauri_core || "?") + " | v" + (state.tauri_version || "?"));
+  }
+  if (state.sealed) out.push("  密封核心       " + state.sealed_asar + "（归档内不可写，需解包成目录核心）");
+  if (state.legacy_redteam_warning) out.push("  ⚠ 旧红队包      " + state.legacy_redteam_warning);
   if (state.desktop_install) out.push("  桌面安装       " + state.desktop_install);
   if (state.ai_base) {
     out.push("  插件根 / root  " + state.ai_base);
@@ -36,7 +41,7 @@ function printStatus(state) {
 }
 
 async function main() {
-  const mode = args.find((a) => ["--apply", "--revert", "--uninstall", "--status", "--edit", "--help"].includes(a));
+  const mode = args.find((a) => ["--apply", "--revert", "--uninstall", "--status", "--edit", "--help", "--tauri-unpack", "--tauri-core"].includes(a));
 
   if (mode === "--help" || args.includes("-h")) {
     console.log(`dsh-purge 用法:
@@ -45,6 +50,8 @@ async function main() {
   dsh-purge --revert     回滚还原
   dsh-purge --uninstall  卸载插件（已应用则先还原）
   dsh-purge --edit       编辑注入文件 prompt-inject.md
+  dsh-purge --tauri-unpack [--flip]   把 dsh-tauri 的 asar 核心解包成目录核心（--flip 同时切换核心格式）
+  dsh-purge --tauri-core dir|asar     切换 dsh-tauri 的核心格式（切换后需重启桌面端）
   dsh-purge --help       帮助`);
     return;
   }
@@ -112,6 +119,77 @@ async function main() {
     console.log("");
     console.log("回滚完成 / Revert done。重启 dsh 后恢复 / restart to restore.");
     console.log("注: prompt-inject.md 保留（用户文件）/ prompt-inject.md kept (user file)");
+  } else if (mode === "--tauri-unpack") {
+    const tauri = await import("../lib/tauri.js");
+    const host = tauri.tauriHost();
+    if (!host) {
+      console.log("[ERROR] 没找到 dsh-tauri 宿主（dependencies.json / .store.dat）");
+      process.exit(1);
+    }
+    console.log("  " + tauri.describeTauriHost(host));
+    if (!host.asar) {
+      console.log("  - 没有 asar 核心，无需解包" + (host.dirAiBase ? "；目录核心已在：" + host.dirAiBase : ""));
+      process.exit(host.dirAiBase ? 0 : 1);
+    }
+    console.log("  解包 / unpacking → " + host.depsRoot);
+    let seen = 0;
+    const result = tauri.unpackTauriCore({
+      dshHome: state.dsh_home,
+      host,
+      onProgress: (entry, index, total) => {
+        seen = index + 1;
+        if (seen % 5000 === 0) console.log(`    ${seen}/${total} ${entry.path}`);
+      },
+    });
+    if (result.skipped) {
+      console.log("  - 已解包过，跳过 / already unpacked");
+    } else {
+      console.log(`  ✓ 解包完成：${result.files}/${result.total} 个文件，${(result.bytes / 1048576).toFixed(1)} MB` + (result.links ? `，${result.links} 个符号链接` : ""));
+      if (result.errors.length) {
+        for (const e of result.errors.slice(0, 8)) console.log("  ⚠ " + e);
+        if (result.errors.length > 8) console.log(`  ⚠ 另有 ${result.errors.length - 8} 个错误`);
+      }
+    }
+    if (!result.base) {
+      console.log("[ERROR] 解包后仍然找不到 node_modules/@deepseek-ai");
+      process.exit(1);
+    }
+    console.log("  目录核心 / directory core " + result.base);
+    if (args.includes("--flip")) {
+      const flipped = tauri.setCoreAsar(false);
+      if (!flipped.ok) {
+        console.log("[ERROR] 切换核心格式失败: " + flipped.error);
+        process.exit(1);
+      }
+      console.log(`  ✓ 核心格式 asar → directory（备份 ${flipped.backup}）`);
+      console.log("  重启 DSH Tauri 后生效，然后点「应用」。");
+    } else {
+      console.log("  下一步：dsh-purge --tauri-core dir（或 DSH Tauri 设置里关掉 ASAR），重启桌面端后点「应用」。");
+    }
+  } else if (mode === "--tauri-core") {
+    const tauri = await import("../lib/tauri.js");
+    const want = String(args[args.indexOf("--tauri-core") + 1] || "").trim().toLowerCase();
+    if (!["dir", "directory", "asar"].includes(want)) {
+      console.log("[ERROR] 用法：dsh-purge --tauri-core dir|asar");
+      process.exit(1);
+    }
+    const host = tauri.tauriHost();
+    if (!host) {
+      console.log("[ERROR] 没找到 dsh-tauri 宿主");
+      process.exit(1);
+    }
+    const enabled = want === "asar";
+    const res = tauri.setCoreAsar(enabled);
+    if (!res.ok) {
+      console.log("[ERROR] " + res.error);
+      process.exit(1);
+    }
+    console.log(`  ✓ core_asar: ${res.before} → ${res.after}（${res.storePath}；备份 ${res.backup}）`);
+    if (!enabled && !host.dirAiBase) {
+      console.log("  ⚠ 目录核心还不存在，先跑 dsh-purge --tauri-unpack，否则桌面端起不来");
+      process.exit(1);
+    }
+    console.log("  重启 DSH Tauri 后生效。");
   } else if (mode === "--uninstall") {
     const { uninstallPurge } = await import("../lib/uninstall.js");
     const result = await uninstallPurge();

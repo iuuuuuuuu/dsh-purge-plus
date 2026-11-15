@@ -2,27 +2,12 @@
 #
 # 清洗 + 演练台都在本插件内（lib/redteam、presets/redteam、skills/redteam）。
 # 只装 dsh-purge，不外接、不 link 其它红队包。
-
-# 关掉旧的独立红队包行（若用户以前装过 dsh-redteam-mode）
-- id: redteam-store
-  name: dsh-redteam-store
-  disabled: true
-
-- id: redteam-ui
-  name: dsh-redteam-ui
-  disabled: true
-
-- id: redteam-mode
-  name: dsh-redteam-mode
-  disabled: true
-
-- id: redteam-mode-store
-  name: dsh-redteam-mode/store
-  disabled: true
-
-- id: redteam-mode-ui
-  name: dsh-redteam-mode/ui
-  disabled: true
+#
+# 1.5.0 起不再在这里 patch 「若用户装过旧独立红队包就关掉」的那些行：
+# 目标行不存在时宿主每次启动都会刷 6 行
+#   dsh: [dsh-purge] patch: entry "redteam-mode" not found
+# 而它们真的存在时，本插件也会在运行时检测并给出提示（lib/legacy-redteam.js）。
+# 补丁层只留一定会命中的行，启动日志才干净。
 
 - id: system-prompt
   config:
@@ -36,9 +21,8 @@
     # 这里只把 persona 收干净，不再发变量。
     personaSuffix: ""
 
-- id: dsh-purge
-  inject: [systemPrompt, tools]
-
+# inject 直接写在 insert 的行上。以前这里还有一条 `- id: dsh-purge / inject`，
+# 它和下面的 insert 抢同一个 id，加载时必然报 "entry \"dsh-purge\" not found"。
 - insert:
     - id: dsh-purge
       name: 'dsh-purge'

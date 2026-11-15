@@ -7,6 +7,56 @@ Baseline: **1.2.0**. Everything below is what this fork adds, improves, or fixes
 
 ---
 
+## 1.5.0 — 社区桌面端（dsh-tauri）支持：补丁终于打在活宿主上
+
+### 背景：1.4.x 在 dsh-tauri 上「全部已应用」是假的
+
+社区桌面端把整个 `@deepseek-ai` 运行时装进一个密封归档
+`<support>/dependencies/dsh/deepseek-harness-pkg-<platform>-<arch>.asar`。宿主从归档里加载，
+补丁写到归档路径必然失败；而旧的 `findAiBase` 在各种探测都落空后会退回到
+`dependencies/dsh-0.2.1-*` 这类**被升级替换掉的旧核心目录**，于是面板显示
+「66/80 已清洗，0 待清洗」，实际运行中的宿主一个标记都没有。
+
+实测证据（本机 0.2.2-rc.3）：归档内 `dsh-agent-loop/lib/index.js` 有 0 个 `dsh-purge` 标记，
+而 `dependencies/dsh-0.2.1-rc.2-39022695148` 下 37 个文件被反复写入。
+
+### 新增
+
+| 位置 | 内容 |
+| --- | --- |
+| `lib/tauri.js` | 识别 dsh-tauri 布局（`dependencies.json` / `.store.dat` / `*.asar` / 目录核心）；`core_asar` 切换核心格式；解包成目录核心（幂等，带 stamp） |
+| `lib/asar.js` | 零依赖 asar 读取/解包（header 解析、符号链接、unpacked、权限位、单文件读取） |
+| `lib/legacy-redteam.js` | 旧的独立红队包改成运行时检测，检测到才提示 |
+| CLI | `dsh-purge --tauri-unpack [--flip]`、`dsh-purge --tauri-core dir\|asar` |
+
+### 修复
+
+- **补丁目标以宿主自报的 `DSH_INSTALL_DIR` 为准**：以前完全不看这个环境变量，是错打到旧树的主因。
+- **密封 asar 宿主不再静默退回别的树**：`findAiBase()` 返回空 + 明确文案；`applyPatchesAllHosts` 直接抛 `DSH_PURGE_SEALED_HOST`，不会再假装成功。
+- 递归兜底扫描 / `enumeratePatchAiBases` 过滤掉不可写目标：`.asar/` 内的路径、`dsh-tauri/dependencies/dsh-*` 旧核心。
+- `gatherState` 增加 `host_kind` / `sealed` / `sealed_asar` / `tauri_support` / `tauri_core` / `tauri_version` / `legacy_redteam`。
+- 启动日志：`cordis.patch.yml` 去掉 6 条必然落空的 patch 行（5 条旧红队包 + 1 条与 insert 抢 id 的 `dsh-purge`），启动不再刷 `patch: entry ... not found`。
+- `test/gate.mjs` 的「不可写审计路径」用例改用临时目录，不再在仓库根目录建出一个名为 `Z:\nope\nested` 的垃圾目录。
+- `dshTarget` 从 `0.2.1-rc.2` 改为 `0.2.2-rc.3`（宿主的兼容校验不看这个字段，但 README/市场展示要用对）。
+
+### 迁移
+
+密封 asar 宿主上第一次需要两步（一次性）：
+
+```sh
+dsh-purge --tauri-unpack --flip   # 解包成目录核心，并把 .store.dat 的 core_asar 关掉
+# 重启 DSH Tauri，然后 设置 → Purge → 应用
+```
+
+还原：`dsh-purge --tauri-core asar` 后重启；`.store.dat.dshpurge.bak` 是切换前的原始备份。
+
+### 验证
+
+- `test/tauri-host.mjs` 26 项全过（构造最小 asar 夹具，覆盖识别/解包/切换/旧树过滤/不退回）。
+- `test/gate.mjs` 71 项全过。
+
+---
+
 ## 1.4.4 — 修 0.2.2 上「红队模式」注册失败
 
 宿主升到 0.2.2-rc.3 后，红队预设会注册成 broken，模式下拉里直接看不到「红队模式」。
