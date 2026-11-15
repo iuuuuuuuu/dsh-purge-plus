@@ -163,6 +163,15 @@ async function main() {
   check("官方 web 安装位直接命中", webInst.kind === "ok" && webInst.base === webBase, JSON.stringify(webInst));
   check("官方 web 不算 tauri 托管", tauri.isTauriManaged(webEnv) === false);
 
+  console.log("Windows 路径");
+  const winInstall = "C:\\Users\\wish\\AppData\\Roaming\\dsh-tauri\\dependencies\\dsh\\deepseek-harness-pkg-windows.asar\\node_modules\\@deepseek-ai\\dsh";
+  check("Windows install dir 算 tauri 托管", tauri.isTauriManaged({ DSH_INSTALL_DIR: winInstall }) === true);
+  check("Windows 支持目录能反推", tauri.supportDirFromInstallDir(winInstall).toLowerCase().endsWith("dsh-tauri"), tauri.supportDirFromInstallDir(winInstall));
+  const winSealed = core.aiBaseFromInstallDir(winInstall);
+  check("Windows 密封 asar 识别", winSealed.kind === "sealed" && winSealed.asar.toLowerCase().endsWith(".asar"), JSON.stringify(winSealed));
+  const winDirInstall = "C:\\Users\\wish\\AppData\\Roaming\\dsh-tauri\\dependencies\\dsh\\node_modules\\@deepseek-ai\\dsh";
+  check("Windows 目录核心安装位", tauri.isTauriManaged({ DSH_INSTALL_DIR: winDirInstall }) === true);
+
   console.log("旧树过滤");
   const stale = path.join(support, "dependencies", "dsh-0.2.1-rc.2", "node_modules", "@deepseek-ai");
   check("dependencies 下旧核心判为不可打", core.isUnpatchableBase(stale) === true);

@@ -12,6 +12,9 @@ function printStatus(state) {
   out.push("  DSH_HOME      " + state.dsh_home);
   if (state.tauri_support) {
     out.push("  dsh-tauri     " + state.tauri_support + " | core=" + (state.tauri_core || "?") + " | v" + (state.tauri_version || "?"));
+    if (state.tauri_data_dir) out.push("  数据目录      " + state.tauri_data_dir);
+    if (state.tauri_deps_root) out.push("  依赖目录      " + state.tauri_deps_root);
+    if (state.active_profile) out.push("  活动 profile  " + state.active_profile + (state.profile_names ? "（共 " + state.profile_names.length + " 个：" + state.profile_names.join(", ") + "）" : ""));
   }
   if (state.sealed) out.push("  密封核心       " + state.sealed_asar + "（归档内不可写，需解包成目录核心）");
   if (state.legacy_redteam_warning) out.push("  ⚠ 旧红队包      " + state.legacy_redteam_warning);
@@ -41,7 +44,7 @@ function printStatus(state) {
 }
 
 async function main() {
-  const mode = args.find((a) => ["--apply", "--revert", "--uninstall", "--status", "--edit", "--help", "--tauri-unpack", "--tauri-core", "--verify"].includes(a));
+  const mode = args.find((a) => ["--apply", "--revert", "--uninstall", "--status", "--edit", "--help", "--tauri-unpack", "--tauri-core", "--verify", "--profiles"].includes(a));
 
   if (mode === "--help" || args.includes("-h")) {
     console.log(`dsh-purge 用法:
@@ -120,6 +123,21 @@ async function main() {
     console.log("");
     console.log("回滚完成 / Revert done。重启 dsh 后恢复 / restart to restore.");
     console.log("注: prompt-inject.md 保留（用户文件）/ prompt-inject.md kept (user file)");
+  } else if (mode === "--profiles") {
+    const profiles = core.listDshProfiles(state.dsh_home, process.env.DSH_PROFILE || "");
+    if (!profiles.length) {
+      console.log("  " + state.dsh_home + "/profiles 下没有可用 profile");
+      process.exit(1);
+    }
+    console.log("");
+    console.log("dsh-purge profiles  (" + state.dsh_home + "/profiles)");
+    for (const p of profiles) {
+      console.log(`  ${p.active ? "*" : " "} ${p.name.padEnd(12)} 依赖 ${String(p.dependencies).padStart(2)} 个 · bundles ${String(p.bundles).padStart(2)} 个 · ${p.dir}`);
+    }
+    console.log("");
+    console.log("  装到指定 profile：dsh plugin --profile <name> add \"<spec>\"");
+    console.log("  或：sh scripts/install.sh --profile <name>");
+    process.exit(0);
   } else if (mode === "--verify") {
     // 「补丁写进文件」和「运行中的宿主加载了补丁」是两件事，这里分开验。
     const fs = await import("node:fs");

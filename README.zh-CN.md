@@ -188,18 +188,57 @@ Harness 不只是把问题交给模型。它还会在运行时改提示词、审
 
 ### 一键安装（推荐）
 
-仓库内置脚本，自动做「装插件 → 识别宿主 → 按需把 asar 核心解包成目录核心 → 打补丁」：
+脚本自动做「选 profile → 装插件 → 识别宿主与目录 → 按需把 asar 核心解包成目录核心 → 打补丁」。
+
+**macOS / Linux / Windows 的 Git Bash**
 
 ```sh
-sh scripts/install.sh
+sh scripts/install.sh                 # 交互：发现多个 profile 会让你选
+sh scripts/install.sh --profile tauri # 直接指定 profile
+sh scripts/install.sh --yes           # 全默认，不问问题
+sh scripts/install.sh --list          # 只列 profile
+sh scripts/install.sh --spec "github:iuuuuuuuu/dsh-purge-plus#<sha>"
 ```
 
-换来源：`sh scripts/install.sh "github:iuuuuuuuu/dsh-purge-plus#<sha>"`。
+**Windows（PowerShell 5.1+ / 7，或双击 `scripts\install.cmd`）**
+
+```powershell
+.\scripts\install.ps1 -List
+.\scripts\install.ps1 -Profile tauri
+.\scripts\install.ps1 -Yes
+.\scripts\install.ps1 -Spec "github:iuuuuuuuu/dsh-purge-plus#<sha>"
+```
+
+两个脚本都读同一套信息：
+
+| 探测项 | 来源 |
+| --- | --- |
+| 数据目录（`$DSH_HOME`） | 环境变量优先，其次桌面端 `.store.dat` 的 `data_dir`（支持迁移到别的盘） |
+| 依赖目录 | `dependencies.json.dsh`（桌面端迁移后会自动指向新路径） |
+| 活动 profile | 环境变量 `DSH_PROFILE` → 桌面端 `active_profile` → 只有一个时直接用 → **多个则让你选** |
+| 核心格式 | `.store.dat` 的 `core_asar`；密封 asar 时脚本会问要不要解包并切换 |
+
 装完按最后一行提示**重启宿主**，然后跑自检：
 
 ```sh
 node ~/.dsh/profiles/<profile>/node_modules/dsh-purge/bin/dsh-purge.js --verify
 ```
+
+### 多 profile 与目录迁移
+
+```sh
+# 看有哪些 profile、当前活动的是哪个
+node <plugin>/bin/dsh-purge.js --profiles
+
+# 同一台机器上分别装到不同 profile
+dsh plugin --profile web     add "github:iuuuuuuuu/dsh-purge-plus#main"
+dsh plugin --profile desktop add "github:iuuuuuuuu/dsh-purge-plus#main"
+dsh plugin --profile tauri   add "github:iuuuuuuuu/dsh-purge-plus#main"
+```
+
+- **数据目录迁移**：桌面端把 `$DSH_HOME` 挪走后，插件跟着 `DSH_HOME` 走（`applied.json`、`prompt-inject.md`、`redteam/` 都在里面）。旧目录残留的 `dsh-purge/` 可以直接删。
+- **依赖目录迁移**：桌面端把 `dependencies` 挪走后，`dependencies.json` 会指向新路径，插件读它，不需要改配置。
+- **多个 profile**：补丁打的是「宿主」，不是 profile；装到哪个 profile 决定哪个宿主加载插件。`--verify` 末尾会显示当前进程用的 profile。
 
 ### 一条命令装（不跑脚本）
 
