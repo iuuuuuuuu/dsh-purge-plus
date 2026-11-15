@@ -21,6 +21,19 @@ Baseline: **1.2.0**. Everything below is what this fork adds, improves, or fixes
 
 两份预设文件同步修改：包内 `presets/redteam/agent.cordis.yml` 与运行时 `$DSH_HOME/.agent-presets/redteam/agent.cordis.yml`（注册实际读的是后者，只改包内那份重启会白改）。
 
+### 破甲页计数口径
+
+同一版顺手修掉一处会吓人的显示：某个补丁「跳过」时，整组 Pill 被判成 `unmatched`，界面上就是「提示词 18/19 没对上」「工具 3/4 没对上」，看起来像补丁失败。
+
+跳过是终态（当前版本不需要，或组件未安装），不是失败。现在：
+
+- 组 Pill 只在真的存在 `unmatched` / `pending` 时才报问题，跳过不再拉红；
+- 进度条把跳过计入完成度，不再停在 97%；
+- 顶部说明去掉了写死的「82 个锚点 / 0.2.1」——总数与宿主版本都会变，硬编码只会误导；
+- 说明里直接写明「跳过=当前版本不需要或组件未安装」。
+
+本机 0.2.2-rc.3 的实际情况：60 个锚点，58 已应用，2 跳过（`#71` 梁神未安装、`#80` 无待回滚的 fs/web 追加），0 失败。
+
 ### 生效方式
 
 插件不会自己重载。行级 `set_plugin` 对 bundle 内的行是 no-op，必须走 bundle 级 `set_bundle`（`dsh-purge` 先 `false` 再 `true`），重载后 `preset-declare.json` 应变成 `phase: registered`、`broken: null`。

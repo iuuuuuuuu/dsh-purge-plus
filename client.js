@@ -185,7 +185,7 @@ window.__ModuleLoader__.load({ id: "dsh-purge", factory: (require) => {
 			"theme.white": "白",
 			"theme.ink": "墨",
 			"purge.title": "补丁",
-			"purge.lead": "本机 0.2.1 的 82 个锚点：已应用 / 总数、命令 shim、备份状态。检测到待处理项时点应用。",
+			"purge.lead": "本机补丁锚点：已应用 / 总数、命令 shim、备份状态。跳过=当前版本不需要或组件未安装。检测到待处理项时点应用。",
 			"override.title": "提示词",
 			"override.lead": "注入到 system 段的操作员指令。改成自己的稿子会按原样落盘，不再随插件刷新。",
 			"own.title": "自己的服务器",
@@ -551,7 +551,7 @@ window.__ModuleLoader__.load({ id: "dsh-purge", factory: (require) => {
 			"theme.white": "Light",
 			"theme.ink": "Ink",
 			"purge.title": "Patches",
-			"purge.lead": "82 anchors on this 0.2.1 install: applied / total, command shims, backup state. Press Apply when anything is pending.",
+			"purge.lead": "Patch anchors on this install: applied / total, command shims, backup state. Skipped means this build does not need it or the component is absent. Press Apply when anything is pending.",
 			"override.title": "Prompt",
 			"override.lead": "Operator instructions injected into the system section. Your own text is written verbatim and stops following plugin updates.",
 			"own.title": "Own servers",
@@ -1288,7 +1288,9 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 				if (tally.unmatched) notes.push(t("metric.unmatchedShort", { n: tally.unmatched }));
 				if (tally.skipped) notes.push(t("metric.skipShort", { n: tally.skipped }));
 				const expanded = !!open[key];
-				const allDone = tally.applied === tally.total;
+				// 跳过（当前版本不需要 / 组件未安装）是终态，不是失败；
+				// 只有 unmatched / pending 才算没做完，否则整组会误显示「没对上」。
+				const allDone = tally.total > 0 && tally.unmatched === 0 && tally.pending === 0;
 				return h("div", { key: key, className: "dshp-group" + (expanded ? " is-open" : "") },
 					h("button", {
 						type: "button",
@@ -2089,7 +2091,8 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 			const tally = located ? tallyPatches(patchRowsOf(s)) : { applied: 0, pending: 0, unmatched: 0, skipped: 0, total: 0 };
 			const total = tally.total;
 			const applied = tally.applied;
-			const pct = located && total ? Math.round((applied / total) * 100) : 0;
+			// 跳过计入完成度：它们不是待办项，进度条不该卡在 97%。
+			const pct = located && total ? Math.round(((applied + tally.skipped) / total) * 100) : 0;
 			const metricNotes = [];
 			if (tally.pending) metricNotes.push(t("metric.pendingShort", { n: tally.pending }));
 			if (tally.unmatched) metricNotes.push(t("metric.unmatchedShort", { n: tally.unmatched }));
