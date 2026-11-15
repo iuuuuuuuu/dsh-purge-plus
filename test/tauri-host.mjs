@@ -141,6 +141,28 @@ async function main() {
   check("tauriAiBase 有根", Boolean(structural && structural.base), JSON.stringify(structural && structural.base));
   check("目录核心不密封", core.sealedHostAsar() === "");
 
+  console.log("官方桌面 / 官方 web 不被 tauri 规则误伤");
+  const officialAsar = "/Applications/DeepSeek Harness.app/Contents/Resources/app.asar";
+  const officialEnv = {
+    HOME: process.env.HOME,
+    DSH_INSTALL_DIR: path.join(officialAsar, "node_modules", "@deepseek-ai", "dsh"),
+    DSH_NODE_EXECUTABLE: "/Applications/DeepSeek Harness.app/Contents/MacOS/DeepSeek Harness",
+  };
+  check("官方 app.asar 不算 tauri 托管", tauri.isTauriManaged(officialEnv) === false);
+  check("tauri 夹具算 tauri 托管", tauri.isTauriManaged(sealedEnv) === true);
+  const offInst = core.aiBaseFromInstallDir(officialEnv.DSH_INSTALL_DIR);
+  check("官方 app.asar 仍被识别为密封", offInst.kind === "sealed", offInst.kind);
+  check("官方 app.asar 的归档路径正确", offInst.asar === officialAsar, offInst.asar);
+  // 官方 web：安装位是真实目录 → 直接命中，不进入任何密封分支
+  // 模拟一台纯 dsh web 机器：npm 全局安装位，路径不含 dsh-tauri/dependencies
+  const webBase = path.join(root, "npm-global", "lib", "node_modules", "@deepseek-ai");
+  fs.mkdirSync(path.join(webBase, "dsh-agent-instructions", "lib"), { recursive: true });
+  fs.writeFileSync(path.join(webBase, "dsh-agent-instructions", "lib", "index.js"), "export const x = 1;\n");
+  const webEnv = { HOME: process.env.HOME, DSH_INSTALL_DIR: path.join(webBase, "dsh") };
+  const webInst = core.aiBaseFromInstallDir(webEnv.DSH_INSTALL_DIR);
+  check("官方 web 安装位直接命中", webInst.kind === "ok" && webInst.base === webBase, JSON.stringify(webInst));
+  check("官方 web 不算 tauri 托管", tauri.isTauriManaged(webEnv) === false);
+
   console.log("旧树过滤");
   const stale = path.join(support, "dependencies", "dsh-0.2.1-rc.2", "node_modules", "@deepseek-ai");
   check("dependencies 下旧核心判为不可打", core.isUnpatchableBase(stale) === true);
