@@ -6,7 +6,7 @@
 
 > 📦 **本仓库为分发镜像**：内容取自 [JeffKeeping/dsh-purge-plus](https://github.com/JeffKeeping/dsh-purge-plus) 的 1.4.3 构建产物（上游 [YuJunZhiXue/dsh-purge](https://github.com/YuJunZhiXue/dsh-purge)），署名、非商用条款与许可证原样保留，未改动插件功能。
 
-<p align="center"><strong>Version 1.4.3 · 本分支 fork</strong> · 适配 DSH <strong>0.2.1-rc.2</strong></p>
+<p align="center"><strong>Version 1.4.4 · 本分支 fork</strong> · 适配 DSH <strong>0.2.1-rc.2</strong></p>
 
 > **这是 fork，不是上游。** 原项目：[YuJunZhiXue/dsh-purge](https://github.com/YuJunZhiXue/dsh-purge)，原作者 **小杨**（[@YuJunZhiXue](https://github.com/YuJunZhiXue)），MIT 许可证（`Copyright (c) 2026 小杨`，本仓库原样保留）。
 > 本分支由 **[@JeffKeeping](https://github.com/JeffKeeping)** 维护，只做 **0.2.1-rc.2 适配 + 破甲内核升级 + 界面重做 + 一处补丁锚点修复**，不改变插件用途与能力范围。

@@ -7,6 +7,26 @@ Baseline: **1.2.0**. Everything below is what this fork adds, improves, or fixes
 
 ---
 
+## 1.4.4 — 修 0.2.2 上「红队模式」注册失败
+
+宿主升到 0.2.2-rc.3 后，红队预设会注册成 broken，模式下拉里直接看不到「红队模式」。
+`$DSH_HOME/redteam/preset-declare.json` 报的是两处 0.2.2 已移除的 API。
+
+### 修复
+
+| 位置 | 变化 |
+| --- | --- |
+| `delegation` 组 `tool-subagent` 行 | 删掉 `toolFilter`（0.2.2 报 `toolFilter is no longer supported; configure persona and tool plugins in an Agent Preset and select it with agentPreset (spawn only)`）。叶子约束改由原本就有的 `maxDepth: 1` 承担：子智能体再往下派活会被宿主以 `childDepth > maxDepth` 硬拒，不依赖提示词自觉 |
+| `tool-subagent-list-agents` 行 | 删除。0.2.2 起 `list_agents` 已并入 `@deepseek-ai/dsh-tool-subagent-control` 主包，不再有 `/list-agents` 子路径入口；保留该行会让整个委派组 `never started`、预设 broken |
+
+两份预设文件同步修改：包内 `presets/redteam/agent.cordis.yml` 与运行时 `$DSH_HOME/.agent-presets/redteam/agent.cordis.yml`（注册实际读的是后者，只改包内那份重启会白改）。
+
+### 生效方式
+
+插件不会自己重载。行级 `set_plugin` 对 bundle 内的行是 no-op，必须走 bundle 级 `set_bundle`（`dsh-purge` 先 `false` 再 `true`），重载后 `preset-declare.json` 应变成 `phase: registered`、`broken: null`。
+
+---
+
 ## 1.4.3 — 恢复「插话」，并把 next-step 竞态真正修掉
 
 1.4.2 的 **#85** 把 `prompt()` 一律改成 `followup`，副作用是**输入框的「插话发送」和队列条的「插话」都变成了排队**：点下去执行的是 `inbox.remove(id)` + `followup(message)`，消息被从 `next-turn` 摘掉、又插回同一个 `next-turn`，净状态不变——界面上就是「点了没反应」。

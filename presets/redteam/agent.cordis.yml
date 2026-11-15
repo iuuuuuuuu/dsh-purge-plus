@@ -25,10 +25,7 @@
 # ── identity ────────────────────────────────────────────────────────────────
 
 # The preset's own persona, shadowing the deployment default for this agent.
-# `{{model}}` resolves from the agent's own route. `{{cwd}}` is only safe when
-# something registered it — 0.2.1's agent-loop registers provider/model only,
-# so this file must not emit `{{cwd}}`; lib/cwd-variable.js registers it for
-# installs that need it.
+# `{{model}}` and `{{cwd}}` resolve from the agent's own route and workspace.
 - id: persona
   name: '@deepseek-ai/dsh-persona'
   config:
@@ -49,6 +46,7 @@
       你只做四件事：**① 计划智能体任务 ② 派活 ③ 分析子智能体回报 ④ 向用户汇报并决定下一个任务**。
       你自己**不动手**：不扫描、不爆破、不利用、不上传、不登录、不探测内网。动手的活一律派给执行角色。
       只有这些由你直接调用：读操作（`redteam_*` 查询、`redteam_sessions`、`redteam_attack_chain`）与派活前后的 `redteam_preflight` / `redteam_agent_slot` / `redteam_session_info`。
+      **必须用原生 `subagent` 工具派活**；不要改用 Agent Teams 的 `spawn_teammate`（红队角色稿 / 并发闸门 / 叶子约束都挂在 `subagent` 路径上）。
       **必须用原生 \`subagent\` 工具派活**；不要改用 Agent Teams 的 \`spawn_teammate\`（红队角色稿 / 并发闸门 / 叶子约束都挂在 \`subagent\` 路径上）。
 
       ## 开工前必须做技能与资源预检（第一个动作）
@@ -296,9 +294,9 @@
       name: '@deepseek-ai/dsh-tool-subagent-control'
       disabled: false
 
-    - id: tool-subagent-list-agents
-      name: '@deepseek-ai/dsh-tool-subagent-control/list-agents'
-      disabled: false
+    # 0.2.2 起 list_agents 已并入 @deepseek-ai/dsh-tool-subagent-control 主包，
+    # 不再有 /list-agents 子路径入口；保留这行会让整个委派组 never started、
+    # 预设 broken，模式下拉里看不到「红队模式」。
 
     - id: tool-subagent
       name: '@deepseek-ai/dsh-tool-subagent'
@@ -308,19 +306,17 @@
         toolName: subagent
         modelSelectionSettings: true
         backgroundMode: continuable
-        # 子智能体是角色执行者（信息收集/资产梳理/漏洞发现/漏洞利用/内网渗透），**必须是叶子节点**：
-        # 靠提示词劝"不要再往下委派"是软的——模型完全可以无视。这里直接把委派工具从子会话的
-        # 工具目录里摘掉，子智能体连看都看不到 subagent / subagent_fork / workflow / ralph。
-        # maxDepth 同时收成 1 作为二道保险（默认 3 层太深，会白吃并发预算与上下文）。
+        # 子智能体是角色执行者（信息收集/资产梳理/漏洞发现/漏洞利用/内网渗透），**必须是叶子节点**。
+        #
+        # 0.2.2 起 `toolFilter` 已从 tool-subagent 行移除（宿主报
+        # "toolFilter is no longer supported; configure persona and tool plugins in an
+        # Agent Preset and select it with agentPreset (spawn only)"）。
+        # 继续留着这一块会让整条委派组 never started、整个预设 broken，
+        # 模式下拉里直接看不到「红队模式」，所以这里删掉。
+        #
+        # 叶子约束改由 maxDepth: 1 承担：子智能体再往下派活会被宿主以
+        # "childDepth > maxDepth" 直接拒绝（硬约束，不依赖提示词自觉）。
         maxDepth: 1
-        # 注意：不能 deny `subagent` —— 它是这一行自己注册的 scoped 工具，不在全局工具库里，
-        # 写进 deny 会让 tools.restrict() 校验失败、整个委派路径报 "unknown global tool"（v0.8.0 踩过）。
-        # 子智能体拿不到 subagent_fork/workflow/ralph，加上 maxDepth: 1，实际已无派发能力。
-        toolFilter:
-          deny:
-            - subagent_fork
-            - workflow
-            - ralph
 
     # Fork omits model selection so provider/model stay equal to the parent and
     # the inherited history remains eligible for KV Cache reuse. This preset

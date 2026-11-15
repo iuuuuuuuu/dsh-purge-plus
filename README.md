@@ -6,7 +6,7 @@
 
 > 📦 **本仓库为分发镜像**：内容取自 [JeffKeeping/dsh-purge-plus](https://github.com/JeffKeeping/dsh-purge-plus) 的 1.4.3 构建产物（上游 [YuJunZhiXue/dsh-purge](https://github.com/YuJunZhiXue/dsh-purge)），署名、非商用条款与许可证原样保留，未改动插件功能。
 
-<p align="center"><strong>Version 1.4.3 · fork</strong> · targets DSH <strong>0.2.1-rc.2</strong></p>
+<p align="center"><strong>Version 1.4.4 · fork</strong> · targets DSH <strong>0.2.1-rc.2</strong></p>
 
 > **This is a fork, not upstream.** Original project: [YuJunZhiXue/dsh-purge](https://github.com/YuJunZhiXue/dsh-purge) by **小杨** ([@YuJunZhiXue](https://github.com/YuJunZhiXue)), MIT licence (`Copyright (c) 2026 小杨`, kept verbatim here).
 > This branch is maintained by **[@JeffKeeping](https://github.com/JeffKeeping)** and only adds **0.2.1-rc.2 compatibility, a stronger prompt kernel, a rebuilt UI, and one patch-anchor fix**. It does not change what the plugin does.
