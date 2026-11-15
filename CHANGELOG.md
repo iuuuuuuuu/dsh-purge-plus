@@ -39,6 +39,14 @@ Baseline: **1.2.0**. Everything below is what this fork adds, improves, or fixes
 - `test/gate.mjs` 的「不可写审计路径」用例改用临时目录，不再在仓库根目录建出一个名为 `Z:\nope\nested` 的垃圾目录。
 - `dshTarget` 从 `0.2.1-rc.2` 改为 `0.2.2-rc.3`（宿主的兼容校验不看这个字段，但 README/市场展示要用对）。
 
+### 注意：桌面端会自己重装依赖目录
+
+切换 `core_asar` 后，桌面端启动时会对依赖目录做一次自己的校验（日志里是
+`Dependencies missing or outdated, starting installation process`）。判定不通过时它会从
+`dsh-tauri/deepseek-harness-pkg` 的 Release 下载 `deepseek-harness-pkg-<平台>-<arch>.zip`（约 200 MB）
+并覆盖 `dependencies/dsh`。这是桌面端的行为，插件接管不了；被覆盖后再点「应用」即可，
+补丁会重新打上。想省掉这次下载就别手工解包，直接在桌面端设置里关掉 ASAR，让它自己装。
+
 ### 迁移
 
 密封 asar 宿主上第一次需要两步（一次性）：

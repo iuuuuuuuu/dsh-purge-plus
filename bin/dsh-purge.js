@@ -131,6 +131,9 @@ async function main() {
       console.log("  - 没有 asar 核心，无需解包" + (host.dirAiBase ? "；目录核心已在：" + host.dirAiBase : ""));
       process.exit(host.dirAiBase ? 0 : 1);
     }
+    console.log("  注意：桌面对依赖目录有自己的安装校验。切换核心格式后它若判定「缺失/过期」，");
+    console.log("        会自行从 GitHub 下载 deepseek-harness-pkg-<平台>.zip（约 200 MB）覆盖本目录；");
+    console.log("        那是桌面端行为，插件接管不了。解包的意义是离线/避免这次下载。");
     console.log("  解包 / unpacking → " + host.depsRoot);
     let seen = 0;
     const result = tauri.unpackTauriCore({
