@@ -184,23 +184,44 @@ Harness 不只是把问题交给模型。它还会在运行时改提示词、审
 
 ## 安装
 
-现在只维护官方 `dsh web` 和官方桌面 EXE，**两边都要装、分开应用**。Web 的包进不了桌面端，桌面端的包也进不了 Web。
+**注意：npm 上的 `dsh-purge` 不是本仓库**（registry 里是别人占名的 `0.0.0-stage`）。所以下面所有命令都用 **仓库 spec**，不要用裸包名。
 
-**Web（官方 `dsh web`）**
+### 一键安装（推荐）
 
-```sh
-dsh plugin --profile web add dsh-purge
-```
-
-**桌面端（官方 EXE）**
+仓库内置脚本，自动做「装插件 → 识别宿主 → 按需把 asar 核心解包成目录核心 → 打补丁」：
 
 ```sh
-dsh plugin --profile desktop add dsh-purge
+sh scripts/install.sh
 ```
 
-当前目录已经是本仓库时，把包名换成 `add .`。`dsh` 不在 PATH 时走 [手动安装](#manual)。registry 上不去：同一个 `--profile`，把目标换成 `https://github.com/YuJunZhiXue/dsh-purge/archive/refs/heads/master.tar.gz`。
+换来源：`sh scripts/install.sh "github:iuuuuuuuu/dsh-purge-plus#<sha>"`。
+装完按最后一行提示**重启宿主**，然后跑自检：
 
-[插件市场](https://dsh-plugin.org/plugins/yujunzhixue/dsh-purge) 一键安装会按本仓库反查 npm，命中后装 `dsh-purge`。目录页可能仍写 `github:` —— 按钮若退回 git，用上表命令。
+```sh
+node ~/.dsh/profiles/<profile>/node_modules/dsh-purge/bin/dsh-purge.js --verify
+```
+
+### 一条命令装（不跑脚本）
+
+```sh
+# 官方 dsh web
+dsh plugin --profile web add "github:iuuuuuuuu/dsh-purge-plus#main"
+
+# 官方桌面 EXE
+dsh plugin --profile desktop add "github:iuuuuuuuu/dsh-purge-plus#main"
+
+# 社区桌面端 dsh-tauri（本分支新增支持）
+dsh plugin --profile tauri add "github:iuuuuuuuu/dsh-purge-plus#main"
+```
+
+`#main` 可以换成 tag 或 commit sha 锁版本。生产环境建议锁 sha：`#<sha>`。
+
+### 关于「一键」
+
+- **能一键的**：拉包 + 装入 profile（上面两条，一条命令）。
+- **还差一步的**：`dsh-tauri` 上核心是密封 asar 时，需要解包并切目录核心（`scripts/install.sh` 已自动做；手工则是 `dsh-purge --tauri-unpack --flip`），之后**必须重启桌面端**，补丁才会被加载。
+- **不能一键的**：桌面端换核心格式会触发它自己校验/下载依赖目录（约 200 MB），这一步归 Tauri 应用管，插件接管不了。
+- 插件市场/客户端的 `dsh://` 按钮按 `package.json` 的 `dsh.install` 清单走，本仓库已指向 `iuuuuuuuu/dsh-purge-plus` 的 tarball/zip/git；若目录页仍显示上游仓库，以本节命令为准。
 
 桌面客户端也可以点按钮（`dsh://` 唤起）：
 
