@@ -7,7 +7,7 @@ Baseline: **1.2.0**. Everything below is what this fork adds, improves, or fixes
 
 ---
 
-## 1.6.1（未发布 / unreleased）— 多宿主恢复、宿主归属与版本闸门、官方客户端接入
+## 1.6.1 — 多宿主恢复、宿主归属与版本闸门、官方客户端接入
 
 ### 恢复：多宿主 / 多 profile
 
