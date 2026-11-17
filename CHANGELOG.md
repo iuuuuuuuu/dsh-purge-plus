@@ -46,9 +46,26 @@ YAML 过 js-yaml（放行宿主自定义 !!js）。版本不同线时即使校�
 - 破甲层确认生效：[assemble.rewrite] injectBytes=23692、strip=true
 - 文件级补丁被版本闸门拒绝，官方 app.asar 一字节未动
 
+### 官方 0.2.1 已完成实测适配
+
+版本闸门从「一刀切拒绝」改成「照常打 + 验成品再换包」：
+
+1. apply：不同版本线也照常解包+打补丁
+2. restart：换走 asar（不可逆那一步）前跑 verifyHostTreeSyntax() ——
+   每个补丁目标 JS 过 node --check、YAML 过 js-yaml（放行 !!js），不过就不切
+3. 顺带修掉两处同类宿主门：sealedAsarFallback() 在官方客户端里也会去读 tauri 核心，
+   把 apply 直接拦死（报「宿主是密封 asar 核心」），已按 isTauriManaged() 加门
+
+官方客户端（dsh 0.2.1-rc.5）实测：
+
+- 补丁：applied 60 / pending 0 / skipped 2，非 applied 仅 #43（旧版预设 unmatched）、#71（组件未装）
+- 成品树校验：40 个 JS + 10 个 YAML 零错误
+- 启动：进程正常、无 bundle 被跳过、宿主入口 = resources/app/dsh/node_modules/…
+- 破甲层：assemble.rewrite injectBytes=23692、strip=true
+
 ### 待办
 
-按宿主版本选补丁 + 把校验闸门搬到官方链路 → issue #2。
+#43 在 0.2.1 的预设布局上 unmatched，需按版本补锚点（issue #3）。
 
 ---
 
