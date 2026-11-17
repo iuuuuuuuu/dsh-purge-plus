@@ -7,6 +7,65 @@ Baseline: **1.2.0**. Everything below is what this fork adds, improves, or fixes
 
 ---
 
+## 1.6.0 — 密封 asar 宿主：补丁终于能真正生效（重打包 + 加载期注入）
+
+### 背景
+
+社区桌面端（dsh-tauri）把 @deepseek-ai 装进密封 asar，宿主永远从归档加载；而它自己的
+「切换目录核心」在这个构建上直接失败：
+`CORE_INTEGRITY_UNAVAILABLE: trusted SHA-256 unavailable for dsh-0.2.2-rc.3-43434887577`。
+改 .store.dat 的 core_asar 也没用——它不是开关，桌面端会按 active_core 重新推导并写回。
+结果：界面显示「应用成功」，活宿主一个字节没变。
+
+### 新增：重打包 asar（lib/asar-writer.js）
+
+把补丁后的内容重新封成同一个归档，宿主照旧从 asar 加载。按原归档条目表重建 header + 数据区，
+未改动条目字节级照抄，改动条目重算 integrity（SHA256 + 4MB 分块）。
+两个必须照抄的格式细节（实测撞出来的）：header 里 **offset 必须是字符串**（写成数字时 Electron
+能 readdir 但取文件一律 ENOENT）；写数据时又要把它转回 Number，否则 + 变成字符串拼接、数据写错位置。
+
+### 新增：加载期注入（lib/runtime-inject.js + lib/runtime-hook.cjs）
+
+重打包之外的补充通道：把「每个目标文件的补丁后全文」写成 manifest，由 Node 的
+`module.registerHooks()` 在模块加载时交付，asar 不动。含语法闸门（每份改写后源码 node --check，
+不合格整层拒绝启用；故障注入验证过它会变红）与自毁防护（重建 manifest 时暂停注入，
+避免读到「自己交付的补丁后源码」而判成无事可做）。
+
+实测三条通道的能力边界（本机）：
+
+| 通道 | 结果 |
+| --- | --- |
+| `--require` shim | 桌面端每次启动重写 asar-native.cjs，主进程拿不到；子进程可用 |
+| 插件进程内装钩子 | 只覆盖晚加载模块，7/43 |
+| 用户级 NODE_OPTIONS | 桌面端派生宿主时过滤掉（两次独立启动验证），默认不启用 |
+| profile 插件顺序 | bundle 列表最前的实体在 asar 内，够不着核心模块 |
+
+### 修复/发现
+
+- **补丁 #43/#4 在 0.2.2-rc.3 上会打坏 presets/cordis.patch.yml**：折叠块 `prefix: >-` 被改成
+  `prefix: ""` 且残留后续行 → YAML 非法 → 整个 @deepseek-ai/dsh-web-app bundle 被跳过、界面卡 loading。
+  此前密封 asar 里这文件读不到、目录核心也没被真宿主加载过，所以从未暴露。
+  现在重打包与运行时注入都**跳过全部 YAML**（提示词/身份层本来就由运行时 assemble 改写覆盖）。
+- 新增 `sealedAsarCarriesPatches()`：宿主 asar 已带补丁时，状态与「应用」都不再去解包/切核心
+  （那些操作会被桌面端否掉，还白烧 600 MB），如实回报「重打包版，生效中」。
+- 启动日志新增 `[host] entry=…`：一眼看出宿主是从 asar 还是目录核心加载的。
+
+### 实测（本机 Windows 11 / dsh 0.2.2-rc.3 / app 0.31.7）
+
+- 重打包：25833 条目 / 616.9 MB 数据 / 耗时约 1.3 s；33 个 JS 打了 52 条规则；
+  10 个 YAML 目标字节级保持原样
+- 逐文件比对：52 个补丁目标 **52/52 字节级完全一致**，0 处不匹配
+- Electron 实读验收：package.json 551 B、README.md 12122 B 与原件一致，模块可 import
+- 换包后宿主正常启动、无 bundle 被跳过；文件层标记：dsh-system-prompt 5 处、
+  dsh-agent-loop 6 处、dsh-sandbox 2 处、dsh-fs-sandbox 1 处
+
+### 落地脚本（本机一次性）
+
+换包 `$DSH_HOME/dsh-purge/apply-repack.cmd`，还原 `restore-original-asar.cmd`，
+原归档备份为 `deepseek-harness-pkg-windows.asar.dshpurge.bak`。
+
+---
+
 ## 1.5.1 — Windows 上「应用」终于生效：插件在宿主里根本看不见 dsh-tauri 的 asar 核心
 
 ### 症状
