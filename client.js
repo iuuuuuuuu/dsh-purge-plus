@@ -276,6 +276,7 @@ window.__ModuleLoader__.load({ id: "dsh-purge", factory: (require) => {
 			"action.revert": "还原",
 			"action.uninstall": "卸载",
 			"ok.done": "已完成",
+			"ok.restartManual": "已写入。重启 DSH Tauri 后生效。",
 			"err.action": "失败: {error}",
 			"err.status": "读取失败: {error}",
 			"err.stale": "另一个窗口刚改过状态（现在是 rev {rev}，最后一次动作 {last}）。已重新读取，请确认后再点。",
@@ -642,6 +643,7 @@ window.__ModuleLoader__.load({ id: "dsh-purge", factory: (require) => {
 			"action.revert": "Restore",
 			"action.uninstall": "Uninstall",
 			"ok.done": "Done",
+			"ok.restartManual": "Written. Restart DSH Tauri to take effect.",
 			"err.action": "Failed: {error}",
 			"err.status": "Read failed: {error}",
 			"err.stale": "Another window changed the state (now rev {rev}, last action {last}). Re-read; check before clicking again.",
@@ -1927,6 +1929,14 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 									suppressRestartAsk.current = false;
 									setAskRestart(true);
 								}
+								return;
+							}
+							/* 社区桌面端（dsh-tauri）插件不替桌面端重启：后端直接给 manual_restart
+							 * 和一句可照做的 note，界面别再弹"重启"框，点下去也不可能成功。 */
+							if (action === "apply" && d.manual_restart) {
+								setNotice({ kind: "ok", text: d.note || tr("ok.restartManual") });
+								setAskRestart(false);
+								loadAll();
 								return;
 							}
 							if (action === "apply") {
