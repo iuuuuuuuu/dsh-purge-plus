@@ -45,19 +45,30 @@ Baseline: **1.2.0**. Everything below is what this fork adds, improves, or fixes
 - **补丁 #43/#4 在 0.2.2-rc.3 上会打坏 presets/cordis.patch.yml**：折叠块 `prefix: >-` 被改成
   `prefix: ""` 且残留后续行 → YAML 非法 → 整个 @deepseek-ai/dsh-web-app bundle 被跳过、界面卡 loading。
   此前密封 asar 里这文件读不到、目录核心也没被真宿主加载过，所以从未暴露。
-  现在重打包与运行时注入都**跳过全部 YAML**（提示词/身份层本来就由运行时 assemble 改写覆盖）。
+  修法：新增 `repairFoldedYamlScalars()`——遇到「`key: ""` + 更深缩进的正文行」就把块头改回
+  `key: >-`，身份句照样删掉、剩余正文继续当折叠内容。重打包时每个 YAML 还要过 js-yaml 解析闸门
+  （放行宿主自定义 `!!js` tag），非法就保留原件。运行时注入侧仍跳过 YAML（ESM 侧读不到 fs 包装）。
 - 新增 `sealedAsarCarriesPatches()`：宿主 asar 已带补丁时，状态与「应用」都不再去解包/切核心
   （那些操作会被桌面端否掉，还白烧 600 MB），如实回报「重打包版，生效中」。
 - 启动日志新增 `[host] entry=…`：一眼看出宿主是从 asar 还是目录核心加载的。
 
 ### 实测（本机 Windows 11 / dsh 0.2.2-rc.3 / app 0.31.7）
 
-- 重打包：25833 条目 / 616.9 MB 数据 / 耗时约 1.3 s；33 个 JS 打了 52 条规则；
-  10 个 YAML 目标字节级保持原样
+- 重打包：25833 条目 / 616.9 MB 数据 / 耗时约 1.3 s；43 个文件打了 70 条规则（33 个 JS + 10 个 YAML）
 - 逐文件比对：52 个补丁目标 **52/52 字节级完全一致**，0 处不匹配
 - Electron 实读验收：package.json 551 B、README.md 12122 B 与原件一致，模块可 import
 - 换包后宿主正常启动、无 bundle 被跳过；文件层标记：dsh-system-prompt 5 处、
   dsh-agent-loop 6 处、dsh-sandbox 2 处、dsh-fs-sandbox 1 处
+
+### 换包后的活宿主实测（最终态）
+
+- 界面：**48 / 67 已应用，待处理 0，跳过 19**（跳过的全是本机没装的组件：
+  hooks-claude-code、官方桌面专属的 desktop-shell、preset-liangshen 等）
+- 点「应用」：**45 ms 返回**「宿主 asar 已经是补丁版（重打包），补丁早已生效，无需再打。」
+  —— 不再尝试解包/切核心，也不再假装在打补丁
+- 状态面板改为读**归档内部**（sealedAsarStatus），计数是真实值；/revert 与卸载在
+  重打包宿主上直接拒绝并指向还原脚本，不会去写 asar
+- 本轮启动无任何 bundle 被跳过
 
 ### 落地脚本（本机一次性）
 
