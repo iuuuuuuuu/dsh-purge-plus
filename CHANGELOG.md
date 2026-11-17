@@ -7,6 +7,52 @@ Baseline: **1.2.0**. Everything below is what this fork adds, improves, or fixes
 
 ---
 
+## 1.5.1 — Windows 上「应用」终于生效：插件在宿主里根本看不见 dsh-tauri 的 asar 核心
+
+### 症状
+
+社区桌面端（dsh-tauri）上点「应用」：进度走完、提示成功，但重启后宿主一个补丁都没生效；
+状态里还挂着「app.asar 还在。补丁写在解开目录，当前进程读不到」。
+macOS 上同一个插件是好的 —— 因为那台机器没装官方 Electron 客户端。
+
+### 根因（三处，都在宿主进程里实测可复现）
+
+1. **Electron 的 node:fs 把 `*.asar` 当成目录。** `lib/tauri.js`、`lib/asar.js` 直接用 `node:fs`
+   探测/读取归档：`statSync(x.asar).isFile()` 恒为 false，`openSync()` 直接 ENOENT。于是
+   `<depsRoot>/deepseek-harness-pkg-<平台>.asar` 在宿主里「不存在」——`pickAsar` 返回空、
+   `tauriAiBase()` 报 missing、连 `DSH_PURGE_SEALED_HOST` 保护都不触发，补丁静默打到别处。
+   两处改用 `diskFs()`（original-fs；非 Electron 环境自动退回 node:fs）。
+
+2. **`findAiBase()` 会被同机那份没在运行的官方 Electron 客户端顶掉。** 走完 tauri 分支后仍会落到
+   `findAiBaseDesktop()`，而 Windows 上 `AppData/Local/Programs/DeepSeek Harness` 是另一个客户端
+   （很多人装了从没启动）。结果补丁全打进它的 `resources/app`（一次白解 400 MB），跑着的 DSH Tauri
+   一个字节没动，界面却显示应用成功。现在 tauri 托管时只认宿主自己的核心。
+
+3. **密封 tauri 核心没有任何可写目标。** 1.5.0 只提供 CLI 迁移（`--tauri-unpack --flip`），
+   界面点「应用」在密封核心上等于永远无效。新增 `core.switchTauriToDirectoryCore()`：解包成
+   `node_modules` 目录核心 + `core_asar=false`（留 `.store.dat.dshpurge.bak`），
+   `/dsh-purge/apply` 第一步就做，之后正常落补丁。
+
+### 行为变化
+
+- **密封 asar 核心上点「应用」会自动解开成目录核心**，不再需要先跑 CLI（1.5.0 的迁移两步变成一步）。
+  首次会阻塞约 30 s（解包 646 MB），之后「应用」回到十几秒。
+- 社区桌面端**不再弹「重启」框**：插件不替桌面端重启（会留下桌面端不认识的后台进程），
+  改为直接给出「补丁已写入，重启 DSH Tauri 后生效」。
+- tauri 宿主不再去洗同机那份官方 Electron 安装，状态也不再误报「app.asar 还在」。
+- 官方 Electron 客户端作为宿主时行为不变（解包 → 打补丁 → 换走 asar → 重启）。
+
+### 实测（本机 Windows 11 / DSH Tauri 0.2.2-rc.3, core_asar=true）
+
+- 解包：25833 文件 / 646 MB / 32.7 s，`core_asar: true → false`，备份 `.store.dat.dshpurge.bak` 已写。
+- 补丁：56 applied / 0 pending / 2 missing_file（`#71` 梁神未装、`#83` 官方桌面专属，属预期）。
+- 文件层复核：`dsh-system-prompt` 5 处、`dsh-agent-loop` 6 处、`dsh-sandbox` 2 处、
+  `dsh-fs-sandbox` 1 处 `dsh-purge` 标记；`enumeratePatchAiBases()` 只剩活宿主 1 个根。
+- `test/tauri-host.mjs` 在本机卡在 `enumeratePatchAiBases()` 的 npm 探测（子进程等待、CPU=0）。
+  用 `git worktree` 拉 HEAD 干净副本做 A/B，**裸 HEAD 卡在同一行**，是既有环境问题，与本次改动无关。
+
+---
+
 ## 1.5.0 — 社区桌面端（dsh-tauri）支持：补丁终于打在活宿主上
 
 ### 背景：1.4.x 在 dsh-tauri 上「全部已应用」是假的
