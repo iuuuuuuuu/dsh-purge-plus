@@ -7,6 +7,51 @@ Baseline: **1.2.0**. Everything below is what this fork adds, improves, or fixes
 
 ---
 
+## 1.6.1（未发布 / unreleased）— 多宿主恢复、宿主归属与版本闸门、官方客户端接入
+
+### 恢复：多宿主 / 多 profile
+
+1.6.0 里为了防止「应用」时白解官方 Electron 客户端的 400 MB，加了 isOtherClientTree()，
+在 tauri 托管时把别的客户端树排除 —— 等于把本项目原有的多宿主能力丢掉。已撤：
+enumeratePatchAiBases() 现在同时列出 dsh-tauri 核心与官方 resources/app（可写的目录核心才纳入，
+密封 asar 仍由 isUnpatchableBase 挡掉）。
+
+### 新增：宿主归属门
+
+sealedTauriCore() 以前不判断「当前进程是不是被 dsh-tauri 托管」，在官方客户端里也会去读 tauri 的核心，
+状态面板因此显示错宿主。现在加了门；并新增 sealedHostArchive() 统一回答「当前宿主在读哪个归档」，
+同时支持两种布局：
+
+- tauri：<asar>/node_modules/@deepseek-ai
+- 官方：<asar>/dsh/node_modules/@deepseek-ai
+
+### 新增：宿主版本闸门
+
+hostDshVersion() / PATCH_TARGET_DSH / hostVersionSupportsPatches()：补丁表是按 0.2.2-rc.3 写的，
+遇到不同版本线（如官方客户端的 0.2.1-rc.5）就**拒绝改动宿主文件**，提示词/破甲继续走运行时层。
+实测 0.2.1 上只有 19/80 条补丁的 pattern 能匹配，硬打会得到半残宿主（applied=3 / pending=58），
+还会把 presets/cordis.patch.yml 打坏导致前端卡 loading。
+
+### 新增：换包前的校验闸门
+
+verifyPatchedTree()：换走 asar（不可逆那一步）之前，对已打补丁的树逐个校验 —— JS 过 node --check，
+YAML 过 js-yaml（放行宿主自定义 !!js）。版本不同线时即使校验通过也不换包（半残宿主没有意义）。
+
+### 官方客户端接入（本机实测）
+
+- 插件能加载：profiles/desktop/node_modules/dsh-purge 指到本地 1.6.x（junction）
+- 修掉一条过期依赖：市场安装把 dsh-purge 写成 github:JeffKeeping/dsh-purge-plus#534a420… 并拉下 1.4.4，
+  已改为 link: 指向本地仓库
+- /dsh-purge/status 在官方客户端端口返回 200，host_dsh_version=0.2.1-rc.5
+- 破甲层确认生效：[assemble.rewrite] injectBytes=23692、strip=true
+- 文件级补丁被版本闸门拒绝，官方 app.asar 一字节未动
+
+### 待办
+
+按宿主版本选补丁 + 把校验闸门搬到官方链路 → issue #2。
+
+---
+
 ## 1.6.0 — 密封 asar 宿主：补丁终于能真正生效（重打包 + 加载期注入）
 
 ### 背景
