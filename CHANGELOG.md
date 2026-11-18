@@ -7,6 +7,36 @@ Baseline: **1.2.0**. Everything below is what this fork adds, improves, or fixes
 
 ---
 
+## 1.6.2 — 「应用」不再误报 #43 未命中
+
+### 现象
+
+点「应用」后提示：提示词已写入。还有 1 项代码补丁没对上当前版本（#43），不影响这段提示词。
+
+### 根因是检测，不是补丁
+
+#43 改 4 个 web 预设（strictFiles 分组）。其中 3 个是 `prefix: ""`，
+剩一个 `cordis.patch.yml` 是早前重打包时由 repairFoldedYamlScalars 兜底改成的 `prefix: >-`：
+身份句确实删干净了，但没有后来加的标记注释。一份认不出 → 整组 rollup 成 unmatched。
+
+### 修法
+
+patchApplied 新增 appliedWhenForbid：纯删除型补丁（身份剥离）只要「要删的句子一个都不在了」
+就算已应用。挂到 #4 / #43 / #76，判据覆盖两种身份句。
+
+### 实测
+
+- patchStatus：#4 / #43 在 dsh-tauri 目录核心（0.2.2-rc.4）与官方 0.2.1 两棵树上都是 applied
+- applyPatches 复跑：already 56 / failed 0 → 「应用」不再报该项
+- 门禁：gate.mjs 71 项、yaml-patches.mjs 24 项全过
+
+### 备注
+
+宿主 dsh 已升到 0.2.2-rc.4，核心由 asar 变回目录版；版本闸门只看 major.minor，
+因此仍判为同线并正常放行 —— rc 号漂移不会误拦。
+
+---
+
 ## 1.6.1 — 多宿主恢复、宿主归属与版本闸门、官方客户端接入
 
 ### 恢复：多宿主 / 多 profile
