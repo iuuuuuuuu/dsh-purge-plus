@@ -84,6 +84,28 @@ for (const c of cases) {
   check("#" + c.id + " [故障注入] 旧写法会触发 repair", repairFoldedYamlScalars(brokenManual) !== brokenManual);
 }
 
+
+// ── issue #3：其它宿主版本里折叠块的缩进不一样，锚点必须与缩进无关 ──────────────
+// 用 2~16 空格的 7 种缩进各造一个折叠块，断言：身份句被删、块头保留、YAML 合法、
+// 且不依赖 repairFoldedYamlScalars 兜底。
+for (const indent of [2, 4, 6, 8, 12, 14, 16]) {
+  const pad = " ".repeat(indent);
+  const fixture = [
+    "plugins:",
+    pad + "- id: persona",
+    pad + "  config:",
+    pad + "    prefix: >-",
+    pad + "      " + IDENTITY,
+    pad + "      You help the user customize DeepSeek Harness itself.",
+    pad + "- id: next",
+  ].join("\n");
+  const out = applyReplacementsToText(fixture, ALL_PATCHES.find((p) => p.id === 43), "/x/presets/cordis.patch.yml").text;
+  check("[缩进 " + indent + "] 身份句已删", !out.includes(IDENTITY), JSON.stringify(out.slice(0, 120)));
+  check("[缩进 " + indent + "] 折叠块头保留", out.includes("prefix: >-"));
+  check("[缩进 " + indent + "] 无坏形状", !hasDanglingScalar(out));
+  check("[缩进 " + indent + "] 不依赖 repair 兜底", repairFoldedYamlScalars(out) === out);
+}
+
 console.log(fails.length ? "FAILED" : "ALL PASS", " (" + pass + " passed, " + fails.length + " failed)");
 for (const f of fails) console.log("  ✗ " + f);
 process.exit(fails.length ? 1 : 0);

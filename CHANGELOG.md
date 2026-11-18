@@ -7,6 +7,27 @@ Baseline: **1.2.0**. Everything below is what this fork adds, improves, or fixes
 
 ---
 
+## 1.6.3（未发布）— #43 锚点与缩进无关（真正修掉 issue #3）
+
+### 背景
+
+#43 / #76 / #4 的身份剥离锚点是按 0.2.2-rc.3 的固定缩进写的字面量，换到别的宿主版本
+（如官方 0.2.1-rc.5）折叠块缩进不同，三条替换都不命中，strictFiles 下整组判 unmatched。
+
+### 修法
+
+给三个补丁各补一条**正则锚点**：匹配「任意缩进的折叠块头 + 身份句」，只删身份句、保留块头，
+并用 `$1# [dsh-purge] identity stripped` 留痕（折叠块规则见 1.6.2 的 issue #1 修复）。
+原字面量锚点保留，向后兼容。
+
+### 实测
+
+- 7 种缩进（2/4/6/8/12/14/16 空格）逐一验证：身份句删除、块头保留、YAML 合法、repair 为 no-op
+- 官方 0.2.1 原始归档的四份预设：standard/ptc/cordis 的身份句全部删除且 YAML 合法，minimal 本无身份句
+- 门禁 test/yaml-patches.mjs 从 24 项扩到 **52 项**（新增缩进矩阵），gate.mjs 71 项，全过
+
+---
+
 ## 1.6.2 — 「应用」不再误报 #43 未命中
 
 ### 现象
