@@ -7,7 +7,7 @@ Baseline: **1.2.0**. Everything below is what this fork adds, improves, or fixes
 
 ---
 
-## 1.6.3（未发布）— #43 锚点与缩进无关（真正修掉 issue #3）
+## 1.6.3 — #43 锚点与缩进无关（真正修掉 issue #3）
 
 ### 背景
 
