@@ -7,6 +7,35 @@ Baseline: **1.2.0**. Everything below is what this fork adds, improves, or fixes
 
 ---
 
+## 1.6.4 — 红队预设自愈不再复活失效插件行
+
+### 现象
+
+红队模式显示「加载失败」，错误：
+`tool-subagent-list-agents (@deepseek-ai/dsh-tool-subagent-control/list-agents); never started`。
+
+### 根因（两层叠加）
+
+1. 运行时预设 `$DSH_HOME/.agent-presets/redteam/agent.cordis.yml` 陈旧（本机停在 10/29），
+   仍带 `tool-subagent-list-agents` 行；而 0.2.2 起 `list_agents` 已并入主包，**没有 /list-agents 子路径**。
+2. `repairDelegation` 的「强制启用」清单里就包含这个死行，每次自愈把它刷成 `disabled: false` ——
+   于是无论怎么更新包，预设都会再次 broken。
+
+### 修法
+
+- 新增 `DEAD_PLUGIN_ROWS`（`/list-agents`、`dsh-workflow-worker-thread`）与 `disableDeadRows()`：
+  自愈时把已知失效行强制 `disabled: true`；**不删行**（老宿主上这些包可能还在，删掉会丢功能）
+- 把 `tool-subagent-list-agents` 从「强制启用」清单里摘掉
+
+### 实测（本机）
+
+- 跑一次 `installPreset` → `repaired`，日志：已禁用无效插件行 tool-subagent-list-agents
+- 全量插件行解析校验：无法解析的只剩 2 条且均为 `disabled: true`，**enabled 致命项 = 0**
+- 预设 YAML 解析通过（放行宿主自定义 `!!js`）
+- 门禁 `test/gate.mjs` 71 项全过
+
+---
+
 ## 1.6.3 — #43 锚点与缩进无关（真正修掉 issue #3）
 
 ### 背景
