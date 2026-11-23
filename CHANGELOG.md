@@ -7,6 +7,54 @@ Baseline: **1.2.0**. Everything below is what this fork adds, improves, or fixes
 
 ---
 
+## 1.6.5 — 破甲关键项被跳过时标红；适配 dsh 0.2.2-rc.5 / 0.2.3-alpha.2
+
+### 破甲关键项告警（新增）
+
+宿主升级会让补丁锚点失配、条目落进 `skipped`，而 `skipped` 在面板上一直是无害的灰色终态，
+于是出现「提示词写得好好的，但授权后任务仍被沙箱 / 审批 / 观测门拦住」。现在：
+
+- 新增 `CRITICAL_PATCH_IDS`（#6 #8 #9 #10 #13 #14 #15 #16 #17 #35 #51 #60 #62）与 `criticalSkippedOf()`；
+  只有 `skipped` / `unmatched` 计入，`missing_file`（组件未装）、`na`（上游已删实现）、`pending`（还没点应用）不算。
+- `gatherState` 输出 `critical_skipped` / `critical_alert`，`/dsh-purge/status` 与「应用」响应都带同一字段。
+- 面板在计数下方渲染红色告警条（中英双语，`role=alert`），不再是灰色 pill。
+- `bin/dsh-purge.js --status` 与 `--verify` 打印 `!! 破甲关键项被跳过`；`--verify` 同时判失败。
+- 新增门禁 `test/critical-alert.mjs`（30 项，含故障注入：applied↔skipped 结论必须翻转）。
+
+### 锚点按版本累加（架构约定）
+
+补丁表对同一语义保留多条锚点，按宿主版本累加，**不删除历史形态**：
+
+- 新形态优先写成正则锚点，只认结构不认死文本，并用 `$1` 继承原缩进；
+- 上游把代码搬到别的包时并入同一逻辑组件映射（`dsh-tools` 追加 `lib/pipeline.js`、
+  新增 `tool-executor-ptc`、`deliverables-prompt` 并入 `dsh-deliverable-file-references`）；
+- 纯删除型补丁用 `appliedWhenForbid`：「该删的都不在了」即达成；
+- 上游彻底删除实现（如 `renderPrompt(assembly)`）才允许 `obsoleteSince`，判 `na` 而不是永远 `skipped`；
+  `patchAppliesHere()` 增加版本判据，并修掉 `versionAtLeast` 把 `major=0` 当无效版本的问题。
+
+### 本轮适配的补丁
+
+`0.2.2-rc.5`：`#13`/`#14`/`#35` escalation（改用 `SandboxEscalationError(msg, code)` 并加守卫）、
+`#62` ask 失败放行（逻辑搬进 `dsh-tools/lib/pipeline.js`）、`#17` fs 观测（改走 `requirePresent()`）、
+`#18` 重复工具提醒；`0.2.3-alpha.2`：`#55` 系统提示替换首条（`inHistory` → `systemPromptUpdate`）、
+`#72` messages 的 system 字段、`#87`/`#88` 判 `na`、`#40` 判 `na`。
+
+### 工程门禁与决策笔记
+
+- 按 agent-notes 规范初始化项目级门禁：`.agents/skills/agent-notes/` + `npm run verify-notes`
+  （tree / format / archived 三线），并做故障注入证明会红（非法文件名、坏链接、缺必填节、未封印归档、篡改已封印归档）。
+- 补齐 5 篇决策笔记（锚点累加、YAML 折叠块、宿主归属门、红队预设失效行、换包前置校验）。
+
+### 实测
+
+- 0.2.3-alpha.2 目录核心：`applied 65 / skipped 0 / na 14 / missing_file 1`；
+  关键补丁文件证据逐条 grep 通过；45 个补丁目标 JS `node --check` 零错误。
+- 告警端到端：把 `serviceAsk` 改名模拟重构 → `#62=skipped` → `critical_skipped=[62]`、`alert=true`、
+  CLI 打 `!!` 行；还原后全部归零。
+- 门禁：`test:critical` 30 / `gate` 71 / `yaml-patches` 52 / `verify-notes` 三线，全过。
+
+---
+
 ## 1.6.4 — 红队预设自愈不再复活失效插件行
 
 ### 现象
