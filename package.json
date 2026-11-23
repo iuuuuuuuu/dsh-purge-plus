@@ -38,6 +38,13 @@
     "test/"
   ],
   "scripts": {
+    "verify-agent-note-tree": "node .agents/skills/agent-notes/scripts/verify-agent-note-tree.ts",
+    "verify-agent-note-format": "node .agents/skills/agent-notes/scripts/verify-agent-note-format.ts",
+    "verify-archived": "node .agents/skills/agent-notes/scripts/verify-archived-agent-notes.ts",
+    "verify-notes": "npm run verify-agent-note-tree && npm run verify-agent-note-format && npm run verify-archived",
+    "archive-agent-note": "node .agents/skills/agent-notes/scripts/archive-agent-note.ts",
+    "check-anchors": "node .agents/skills/agent-notes/scripts/check-note-anchors.ts",
+    "init-board": "node .agents/skills/agent-notes/scripts/build-board.ts --init board.html \"工程决策看板\"",
     "embed-prompt": "node scripts/embed-default-prompt.mjs",
     "build:client": "node scripts/build-client.mjs",
     "test:gate": "node test/gate.mjs",
