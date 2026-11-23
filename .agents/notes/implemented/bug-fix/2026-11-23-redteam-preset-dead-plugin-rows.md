@@ -35,4 +35,4 @@ Status: implemented
 ## Verification
 
 - 全量解析运行时预设：无法解析的行只剩 2 条且均为 `disabled: true`，启用态致命项 0。
-- `D:\DSHHome\redteam\preset-declare.json`：`phase=registered`、`broken=null`、`plugins=19`。
+- `$DSH_HOME/redteam/preset-declare.json`：`phase=registered`、`broken=null`、`plugins=19`。
