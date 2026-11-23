@@ -33,6 +33,12 @@ function printStatus(state) {
   out.push(`  注入状态       ${state.override_status}`);
   out.push("");
   out.push(`  补丁 ${state.patches_applied}/${core.ALL_PATCHES.length} 已清洗, ${state.patches_pending} 待清洗`);
+  /* 跳过里含破甲关键项 = 面板必须标红，不能当无害的灰。CLI 里给同样的告警。 */
+  if (Array.isArray(state.critical_skipped) && state.critical_skipped.length > 0) {
+    out.push("");
+    out.push(`  !! 破甲关键项被跳过 / CRITICAL PATCHES SKIPPED: ${state.critical_skipped.map((id) => "#" + id).join(" ")}`);
+    out.push("     这些放行没落到宿主文件里：授权后模型仍会被沙箱/审批/观测门拦住。点「应用」重试，仍失败请看 --status 明细。");
+  }
   for (const p of core.ALL_PATCHES) {
     const s = state.patch_status[p.id];
     const mark = s === "applied" ? "✓" : s === "pending" ? "✗" : "·";
@@ -181,6 +187,10 @@ async function main() {
       // 2) 待办
       lines.push("补丁表      " + st.patches_applied + " 已清洗 / " + st.patches_pending + " 待清洗" + (st.patches_skipped ? " / " + st.patches_skipped + " 跳过" : "") + (st.patches_na ? " / " + st.patches_na + " 组件未装" : ""));
       if (st.patches_pending > 0) { lines.push("            ✗ 还有待清洗补丁，点「应用」"); ok = false; }
+      if (Array.isArray(st.critical_skipped) && st.critical_skipped.length > 0) {
+        lines.push("            !! 破甲关键项被跳过: " + st.critical_skipped.map((id) => "#" + id).join(" ") + "（授权后仍会被拦）");
+        ok = false;
+      }
       // 3) 进程层：宿主进程是不是在补丁写完之后才起来的
       let pid = "";
       try {

@@ -32,6 +32,17 @@ Status: implemented
 判定顺序由 `patchAppliesHere(patch, surface, hostVersion)` 承担，宿主版本来自 `hostVersionFrom(aiBase)`
 （读 `<aiBase>/dsh/package.json`），`versionAtLeast` 只比 `major.minor.patch`，忽略 `-rc/-alpha` 后缀。
 
+## 跳过信号必须能报警：破甲关键项标红
+
+`skipped` 之所以长期误导，是因为面板把它当无害终态。现在把「执行期放行」这一类补丁标为破甲关键项
+（`CRITICAL_PATCH_IDS` = #6 #8 #9 #10 #13 #14 #15 #16 #17 #35 #51 #60 #62），并规定：
+
+- `criticalSkippedOf(patchStatus)` 只把 `skipped` / `unmatched` 计入告警；
+  `missing_file`（组件未装）与 `na`（上游已删实现）不计，`pending`（还没点应用）也不计——那是正常待办。
+- `gatherState` 输出 `critical_skipped` / `critical_alert`，`/dsh-purge/status` 与「应用」响应都带同一字段。
+- 面板在计数下方渲染红色 `.dshp-critical` 告警条（中英双语），不是灰色 pill。
+- `bin/dsh-purge.js --status` 与 `--verify` 打印 `!! 破甲关键项被跳过` 并把 `--verify` 判为失败（exit 非 0）。
+
 ## Alternatives considered
 
 - **按宿主版本维护多张补丁表** — 语义最干净，但状态面板、回滚、备份、报告都要按表分裂，
